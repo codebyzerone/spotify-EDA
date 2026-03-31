@@ -1,4 +1,6 @@
-# 🎧 Spotify EDA — What Makes a Song Blow Up?
+# 🎧 Spotify-data-analysis 
+
+What Makes a Song Blow Up?
 
 I've always wondered why certain songs dominate every playlist while others disappear.
 This project is my attempt to answer that using data — diving into Spotify's most
