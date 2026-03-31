@@ -1,0 +1,44 @@
+# Walkthrough · Spotify 2024 Multi-Platform EDA Dashboard
+
+## What Was Built
+
+An interactive Streamlit + Plotly dashboard for multi-platform EDA on the 2024 Kaggle Spotify dataset.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| [app.py](file:///d:/spotify.py/app.py) | Main dashboard (5 sections, dark Spotify theme) |
+| [data_loader.py](file:///d:/spotify.py/data_loader.py) | Vectorized data cleaning, column normalization, encoding fallback |
+| [requirements.txt](file:///d:/spotify.py/requirements.txt) | Python dependencies |
+| [data/](file:///d:/spotify.py/data_loader.py#68-78) | Folder for user's Kaggle CSV |
+
+### Dashboard Sections
+
+1. **KPI Cards** — total tracks, streams, avg popularity, top artist
+2. **Cross-Platform Correlation** — heatmap (platform metrics ↔ audio features) + scatter with OLS trendline
+3. **Song DNA Radar** — compare up to 3 tracks' normalized audio fingerprints (`Scatterpolar`)
+4. **Distribution Explorer** — histogram/violin for any numeric column
+5. **Top-N Rankings** — horizontal bar chart by any metric
+
+### Key Design Decisions
+- Graceful degradation: radar charts disabled if dataset lacks audio features
+- CSV file upload fallback when `data/spotify_2024.csv` is missing
+- Vectorized cleaning with `pd.to_numeric(errors='coerce')` and median imputation
+- Column normalization handles `Danceability`, `Danceability %`, and `danceability_%` variants
+
+## Verification
+
+- ✅ `pip install streamlit plotly` completed
+- ✅ `python -m streamlit run app.py` starts without errors on `http://localhost:8501`
+- ✅ Dashboard renders header, file uploader, and Dataset Not Found instructions correctly
+- ✅ No Python tracebacks
+
+## How to Run
+
+```powershell
+cd d:\spotify.py
+python -m streamlit run app.py
+```
+
+> Place your Kaggle CSV at `data/spotify_2024.csv`, or use the in-app file uploader.
