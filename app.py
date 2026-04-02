@@ -8,6 +8,9 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import seaborn as sns
 from pathlib import Path
 
 from data_loader import (
@@ -88,6 +91,31 @@ SPOTIFY_COLORS = [
     "#c084fc", "#fb923c", "#f472b6",
 ]
 
+# ── Matplotlib / Seaborn dark-theme helper ────────────────────────────────────
+
+def _apply_mpl_dark_theme():
+    """Set a dark Spotify-flavoured theme for matplotlib/seaborn figures."""
+    plt.rcParams.update({
+        "figure.facecolor": "#0e1117",
+        "axes.facecolor": "#0e1117",
+        "axes.edgecolor": "#333333",
+        "axes.labelcolor": "#e0e0e0",
+        "text.color": "#e0e0e0",
+        "xtick.color": "#b3b3b3",
+        "ytick.color": "#b3b3b3",
+        "grid.color": "#0f0f0f",
+        "grid.linestyle": "--",
+        "font.family": "sans-serif",
+        "font.size": 11,
+        "legend.facecolor": "#161b22",
+        "legend.edgecolor": "#333333",
+    })
+    sns.set_style("darkgrid", {
+        "axes.facecolor": "#0e1117",
+        "figure.facecolor": "#0e1117",
+        "grid.color": "#0f0f0f",
+    })
+
 # ─── Data Loading ─────────────────────────────────────────────────────────────
 
 DATA_PATH = Path("data/spotify_2024.csv")
@@ -113,9 +141,8 @@ def render_missing_data_page():
         4. Place it in the `data/` folder of this project
         5. Refresh this page ↻
 
-        > 💡 For the full experience (Song DNA radar charts), use a dataset
-        > version that includes audio features like *Danceability*, *Energy*,
-        > *Valence*, etc.
+        > 💡 For the full experience, use a dataset version that includes
+        > audio features like *Danceability*, *Energy*, *Valence*, etc.
         """)
     st.stop()
 
@@ -157,8 +184,8 @@ def render_sidebar(df: pd.DataFrame):
         st.markdown("---")
         st.markdown("### 📊 Platforms")
         platforms = {}
-        for p in ("spotify", "youtube", "tiktok"):
-            emoji = {"spotify": "🟢", "youtube": "🔴", "tiktok": "🎵"}[p]
+        for p in ("spotify", "youtube"):
+            emoji = {"spotify": "🟢", "youtube": "🔴"}[p]
             platforms[p] = st.checkbox(f"{emoji} {p.title()}", value=True)
 
         st.markdown("---")
@@ -214,94 +241,146 @@ def _fmt_big(n: float) -> str:
 
 
 
-# ─── Section 3: Song DNA Radar Chart ─────────────────────────────────────────
 
-def render_song_dna(df: pd.DataFrame):
-    st.markdown("## 🧬 Song DNA · Radar Chart")
-    st.caption("Compare normalised audio feature fingerprints of up to 3 tracks")
+# ─── Section 4: Correlation Heatmap (Seaborn) ────────────────────────────────
+
+def render_correlation_heatmap(df: pd.DataFrame):
+    """Render a seaborn correlation heatmap for numeric features."""
+    st.markdown("## 🔥 Feature Correlation Heatmap")
+    st.caption("Pearson correlations across streaming metrics & audio features — powered by **Seaborn**")
+
+    numeric_cols = [c for c in df.select_dtypes(include="number").columns
+                    if c != "Release Year"]
+    if len(numeric_cols) < 2:
+        st.info("Not enough numeric columns to compute correlations.")
+        return
+
+    # Let user pick which columns to include
+    default_cols = numeric_cols[:12]  # sensible default
+    selected = st.multiselect(
+        "Select features for the heatmap",
+        options=numeric_cols,
+        default=default_cols,
+        key="heatmap_cols",
+    )
+    if len(selected) < 2:
+        st.warning("Select at least 2 features.")
+        return
+
+    corr = df[selected].corr()
+
+    _apply_mpl_dark_theme()
+    fig, ax = plt.subplots(figsize=(max(8, len(selected) * 0.75), max(6, len(selected) * 0.6)))
+
+    # Custom diverging palette: teal → black → Spotify green
+    cmap = sns.diverging_palette(190, 140, s=80, l=55, as_cmap=True)
+
+    mask = np.triu(np.ones_like(corr, dtype=bool), k=1)
+    sns.heatmap(
+        corr,
+        mask=mask,
+        annot=True,
+        fmt=".2f",
+        cmap=cmap,
+        center=0,
+        vmin=-1, vmax=1,
+        linewidths=0.5,
+        linecolor="#1a1a2e",
+        cbar_kws={"shrink": 0.8, "label": "Pearson r"},
+        ax=ax,
+        annot_kws={"size": 9},
+    )
+    ax.set_title("Feature Correlation Matrix", fontsize=14, fontweight="bold",
+                 color="#1ed760", pad=14)
+    ax.tick_params(axis="x", rotation=45)
+    ax.tick_params(axis="y", rotation=0)
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+# ─── Section 5: Audio Feature KDE / Box Plots (Matplotlib + Seaborn) ────────
+
+def render_audio_feature_plots(df: pd.DataFrame):
+    """Render seaborn KDE and box plots for audio features."""
+    st.markdown("## 🎶 Audio Feature Landscape")
+    st.caption("Density curves & boxplots for audio features — powered by **Matplotlib + Seaborn**")
 
     audio_cols = get_audio_features(df)
     if not audio_cols:
         st.info(
             "Your dataset doesn't include audio feature columns "
             "(Danceability, Energy, Valence, …). "
-            "Use a dataset version with Spotify audio features for this chart."
+            "Upload a version with audio features to see this section."
         )
         return
 
-    # Build track label
-    if "Track" in df.columns:
-        label_col = "Track"
-    elif "Track Name" in df.columns:
-        label_col = "Track Name"
-    else:
-        st.warning("No track name column found.")
-        return
-
-    track_labels = df[label_col].dropna().unique().tolist()
-    selected = st.multiselect(
-        "🔎 Select tracks to compare (up to 3)",
-        options=sorted(track_labels),
-        max_selections=3,
-        key="dna_tracks",
+    plot_style = st.radio(
+        "Visualisation style",
+        ["KDE Density", "Box + Strip", "Violin"],
+        horizontal=True,
+        key="audio_plot_style",
     )
 
-    if not selected:
-        st.info("Select one or more tracks above to render their Song DNA.")
-        return
+    _apply_mpl_dark_theme()
+    palette = ["#1ed760", "#6bcbff", "#c084fc", "#ff6b6b",
+               "#ffd93d", "#fb923c", "#f472b6"]
 
-    # Normalise audio features to 0–100 for radar
-    norm_df = df.copy()
-    for c in audio_cols:
-        cmin, cmax = norm_df[c].min(), norm_df[c].max()
-        if cmax > cmin:
-            norm_df[c] = (norm_df[c] - cmin) / (cmax - cmin) * 100
-        else:
-            norm_df[c] = 50
+    if plot_style == "KDE Density":
+        fig, ax = plt.subplots(figsize=(10, 5))
+        for i, col in enumerate(audio_cols):
+            sns.kdeplot(
+                data=df, x=col, ax=ax,
+                fill=True, alpha=0.25, linewidth=1.8,
+                color=palette[i % len(palette)],
+                label=col,
+            )
+        ax.set_xlabel("Feature Value", fontsize=12)
+        ax.set_ylabel("Density", fontsize=12)
+        ax.set_title("Audio Feature Density Curves", fontsize=14,
+                     fontweight="bold", color="#1ed760", pad=12)
+        ax.legend(framealpha=0.6, fontsize=9)
+        fig.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
-    fig = go.Figure()
-    colors = SPOTIFY_COLORS[:3]
+    elif plot_style == "Box + Strip":
+        melted = df[audio_cols].melt(var_name="Feature", value_name="Value")
+        fig, ax = plt.subplots(figsize=(10, 5))
+        sns.boxplot(
+            data=melted, x="Feature", y="Value",
+            palette=palette[:len(audio_cols)],
+            ax=ax, linewidth=1.2, fliersize=2,
+            boxprops=dict(alpha=0.7),
+        )
+        sns.stripplot(
+            data=melted, x="Feature", y="Value",
+            color="#ffffff", alpha=0.08, size=2, ax=ax, jitter=True,
+        )
+        ax.set_title("Audio Features — Box + Strip", fontsize=14,
+                     fontweight="bold", color="#1ed760", pad=12)
+        ax.tick_params(axis="x", rotation=30)
+        fig.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
-    for i, track in enumerate(selected):
-        row = norm_df[norm_df[label_col] == track].iloc[0]
-        values = [row[c] for c in audio_cols]
-        values.append(values[0])  # close the polygon
-        theta = audio_cols + [audio_cols[0]]
-
-        fig.add_trace(go.Scatterpolar(
-            r=values,
-            theta=theta,
-            fill="toself",
-            name=track[:40],
-            line=dict(color=colors[i], width=2),
-            fillcolor=colors[i].replace(")", ", 0.12)").replace("rgb", "rgba")
-                      if "rgb" in colors[i] else colors[i] + "20",
-            opacity=0.85,
-        ))
-
-    fig.update_layout(
-        **PLOTLY_LAYOUT,
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(
-                visible=True, range=[0, 100],
-                gridcolor="rgba(255,255,255,0.08)",
-            ),
-            angularaxis=dict(gridcolor="rgba(255,255,255,0.08)"),
-        ),
-        title="Song DNA Comparison",
-        height=520,
-        showlegend=True,
-        legend=dict(
-            bgcolor="rgba(0,0,0,0.4)",
-            bordercolor="rgba(30,215,96,0.2)",
-            borderwidth=1,
-        ),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    else:  # Violin
+        melted = df[audio_cols].melt(var_name="Feature", value_name="Value")
+        fig, ax = plt.subplots(figsize=(10, 5))
+        sns.violinplot(
+            data=melted, x="Feature", y="Value",
+            palette=palette[:len(audio_cols)],
+            ax=ax, inner="quartile", linewidth=1,
+        )
+        ax.set_title("Audio Features — Violin Plots", fontsize=14,
+                     fontweight="bold", color="#1ed760", pad=12)
+        ax.tick_params(axis="x", rotation=30)
+        fig.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
 
-# ─── Section 4: Distribution Explorer ────────────────────────────────────────
+# ─── Section 6: Distribution Explorer ────────────────────────────────────────
 
 def render_distributions(df: pd.DataFrame, platforms: dict):
     st.markdown("## 📊 Distribution Explorer")
@@ -396,7 +475,7 @@ def main():
             🎧 Spotify 2024 · Multi-Platform EDA
         </h1>
         <p style='color:#b3b3b3; font-size:0.95rem; margin-top:4px;'>
-            Exploring how viral TikTok & YouTube metrics correlate with core audio features
+            Exploring how YouTube metrics correlate with core audio features
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -436,8 +515,13 @@ def main():
 
     st.markdown("---")
 
-    # ── Song DNA ──
-    render_song_dna(filtered)
+    # ── Correlation Heatmap (Seaborn) ──
+    render_correlation_heatmap(filtered)
+
+    st.markdown("---")
+
+    # ── Audio Feature Landscape (Matplotlib + Seaborn) ──
+    render_audio_feature_plots(filtered)
 
     st.markdown("---")
 
@@ -448,7 +532,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<div style='text-align:center; color:#666; font-size:0.8rem; padding:10px;'>"
-        "Built with Streamlit & Plotly · Dataset: "
+        "Built with Streamlit, Plotly, Matplotlib &amp; Seaborn · Dataset: "
         "<a href='https://www.kaggle.com/datasets/nelgiriyewithana/most-streamed-spotify-songs-2024' "
         "style='color:#1db954;'>Kaggle</a>"
         "</div>",
