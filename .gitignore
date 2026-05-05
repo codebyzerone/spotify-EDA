@@ -1,3 +1,7 @@
 venv/
 .venv/
 __pycache__/
+*.pyc
+.env
+data/spotify_2024.csv
+data/spotify_2024.zip

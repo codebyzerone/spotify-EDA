@@ -1,8 +1,16 @@
-# 🎧 Spotify-EDA - What Makes a Song Blow Up?
+# 🎧 Spotify-EDA — What Makes a Song Blow Up?
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/codebyzerone/spotify-EDA/main/app.py)
 
 I've always wondered why certain songs dominate every playlist while others disappear.
 This project is my attempt to answer that using data — diving into Spotify's most
 streamed songs to find patterns in what actually makes music stick.
+
+## ✨ Live Demo
+
+> **[Launch the Dashboard →](https://share.streamlit.io/codebyzerone/spotify-EDA/main/app.py)**
+>
+> Upload the Kaggle dataset when prompted and explore the interactive charts.
 
 ## What I Explored
 - Which artists consistently top the charts (and by how much)
@@ -13,25 +21,24 @@ streamed songs to find patterns in what actually makes music stick.
 ## Project Structure
 ```
 spotify-eda/
-├── app.py              # entry point
-├── data_loader.py      # handles dataset loading + cleanup
-├── data/               # raw dataset lives here
-└── requirements.txt
+├── app.py                 # Streamlit dashboard entry point
+├── data_loader.py         # Dataset loading + vectorised cleanup
+├── data/                  # Place your dataset here (or upload via the app)
+├── requirements.txt       # Python dependencies
+└── .streamlit/
+    └── config.toml        # Dark theme + upload config
 ```
 
-## Getting Started
+## Running Locally
 ```bash
 pip install -r requirements.txt
-python app.py
+streamlit run app.py
 ```
 
-That's it. No config files, no setup headaches.
-
 ## Stack
-Python · Pandas · Seaborn · Plotly · (Streamlit dashboard — coming soon)
+Python · Pandas · Plotly · Matplotlib · Seaborn · Streamlit
 
 ## What's Next
-- Wrap the whole thing into an interactive Streamlit dashboard
 - Pull live data using the Spotify Web API
 - Maybe throw in a "predict a song's popularity" model if the features hold up
 
