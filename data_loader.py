@@ -3,7 +3,6 @@ data_loader.py — Vectorized data loading & cleaning for Spotify 2024 dataset.
 """
 
 import pandas as pd
-import numpy as np
 import streamlit as st
 import zipfile
 import io
@@ -30,6 +29,18 @@ PLATFORM_METRICS = {
     ],
     "tiktok": [
         "TikTok Posts", "TikTok Likes", "TikTok Views",
+    ],
+    "apple_music": [
+        "Apple Music Playlist Count",
+    ],
+    "deezer": [
+        "Deezer Playlist Count", "Deezer Playlist Reach",
+    ],
+    "amazon": [
+        "Amazon Playlist Count",
+    ],
+    "shazam": [
+        "Shazam Counts",
     ],
 }
 
@@ -156,15 +167,3 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
-def get_audio_features(df: pd.DataFrame) -> list[str]:
-    """Return the audio-feature columns that actually exist in *df*."""
-    return [c for c in AUDIO_FEATURES if c in df.columns]
-
-
-def get_platform_metrics(df: pd.DataFrame) -> dict[str, list[str]]:
-    """Return {platform: [cols…]} for columns present in *df*."""
-    return {
-        plat: [c for c in cols if c in df.columns]
-        for plat, cols in PLATFORM_METRICS.items()
-    }
